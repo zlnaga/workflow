@@ -26,4 +26,4 @@ jobs:
         env:
           bintrayUser: ${{ secrets.BINTRAY_USER }}
           bintrayApiKey: ${{ secrets.BINTRAY_API_KEY }}
-        run: ./gradlew clean build bintrayUpload -PbintrayUser=${{ env.bintrayUser }} -PbintrayKey=${{ env.bintrayApiKey }} -PdryRun=false
+        run: ./gradlew clean :workflow:build :workflow:bintrayUpload -PbintrayUser=${{ env.bintrayUser }} -PbintrayKey=${{ env.bintrayApiKey }} -PdryRun=false

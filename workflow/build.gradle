@@ -1,6 +1,30 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
-apply plugin: 'com.github.panpf.bintray-publish'
+apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: 'com.jfrog.bintray'
+
+ext {
+    bintrayRepo = 'maven'
+    bintrayName = rootProject.ext.groupId
+
+    publishedGroupId = rootProject.ext.groupId
+    libraryName = 'workflow'
+    artifact = 'workflow'
+    libraryDescription = rootProject.ext.desc
+    libraryVersion = rootProject.ext.versionName
+
+    siteUrl = rootProject.ext.siteUrl
+    gitUrl = rootProject.ext.vcsUrl
+    githubRepository= 'zlnaga/workflow'
+
+    developerId = 'zlnaga'
+    developerName = 'Xu Yang'
+    developerEmail = 'n@axacat.com'
+
+    licenseName = 'The Apache Software License, Version 2.0'
+    licenseUrl = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+    allLicenses = ["Apache-2.0"]
+}
 
 android {
     compileSdkVersion 30
@@ -22,23 +46,6 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-}
-
-publish {
-    userOrg = rootProject.ext.bintrayUser
-    groupId = rootProject.ext.groupId
-    artifactId = rootProject.ext.artifactId
-    publishVersion = rootProject.ext.versionName
-    desc = rootProject.ext.desc
-    website = 'https://github.com/zlnaga/workflow'
-}
-
-// see https://github.com/panpf/bintray-publish#note
-// If you are using to release the android aar library, and need to temporarily publish aar
-// to mavenLocal() and rely on it from mavenLocal(), and your Gradle version is 6.0+, then
-// you may need to add the following configuration:
-tasks.withType(GenerateModuleMetadata) {
-    enabled = false
 }
 
 dependencies {
@@ -64,3 +71,5 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
 
 }
+
+apply from: 'publish.gradle'
