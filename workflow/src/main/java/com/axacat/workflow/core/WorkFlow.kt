@@ -23,7 +23,7 @@ abstract class WorkFlow<T : WorkFlowParam> {
         graph = createFlow(param)
     }
 
-    inline fun <reified R> produce(crossinline callback: (Result<R>) -> Unit) {
+    inline fun <reified R> produce(resultOn: ThreadOn? = ThreadOn.MAIN, crossinline callback: (Result<R>) -> Unit) {
         Logger.d(tag = this::class.java.name) { "work flow produce" }
         val gh = graph
         if (gh != null) {
@@ -31,7 +31,7 @@ abstract class WorkFlow<T : WorkFlowParam> {
                 callback(Result.failure(it))
                 reset()
             }
-            gh.produce<R> {
+            gh.produce<R>(resultOn = resultOn) {
                 callback.invoke(Result.success(it))
                 reset()
             }
@@ -40,7 +40,7 @@ abstract class WorkFlow<T : WorkFlowParam> {
         }
     }
 
-    inline fun <reified R> standby(crossinline callback: (Result<R>) -> Unit) {
+    inline fun <reified R> standby(resultOn: ThreadOn? = ThreadOn.MAIN, crossinline callback: (Result<R>) -> Unit) {
         Logger.d(tag = this::class.java.name) { "work flow standby" }
         val gh = graph
         if (gh != null) {
@@ -48,7 +48,7 @@ abstract class WorkFlow<T : WorkFlowParam> {
                 callback(Result.failure(it))
                 reset()
             }
-            gh.standby<R> {
+            gh.standby<R>(resultOn = resultOn) {
                 callback.invoke(Result.success(it))
                 reset()
             }

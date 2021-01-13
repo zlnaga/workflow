@@ -8,11 +8,15 @@ import com.axacat.workflow.core.usecase.UseCase
 import com.axacat.workflow.util.DistinctMutableList
 import com.axacat.workflow.util.Logger
 import com.axacat.workflow.util.distinctMutableListOf
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class FlowGraph private constructor(
     val uuid: String,
     private val tag: String,
-    val rootInput: Any = START
+    val rootInput: Any = START,
+    val threadOn: ThreadOn = ThreadOn.UNSPECIFIC
 ) {
     private val attachedGraph = mutableMapOf<String, DistinctMutableList<FlowGraph>>()
     val router = mutableMapOf<String, Node>()
@@ -20,7 +24,7 @@ class FlowGraph private constructor(
 
     var root: Node? = null
     val endNode by lazy {
-        EndNode(uuid)
+        EndNode(uuid, threadOn)
     }
 
     companion object {
@@ -32,13 +36,15 @@ class FlowGraph private constructor(
             tag: String,
             case: AsyncUseCase<T, R>,
             rootInput: Any = START,
+            threadOn: ThreadOn = ThreadOn.UNSPECIFIC,
             inputTransformer: ((Any?) -> T)? = null,
             tracker: Tracker<T, R>? = null
         ): FlowGraph {
-            val graph = FlowGraph(uuid, tag, rootInput)
+            val graph = FlowGraph(uuid, tag, rootInput, threadOn)
             val node = StartNode(
                 uuid = uuid,
                 case = case,
+                threadOn = threadOn,
                 inputTransformer = inputTransformer,
                 tracker = tracker
             )
@@ -105,6 +111,7 @@ class FlowGraph private constructor(
     inline fun <T1, reified R1, T2, reified R2> link(
         case1: UseCase<T1, R1>,
         case2: UseCase<T2, R2>,
+        threadOn: ThreadOn? = null,
         noinline inputTransformer: ((R1) -> T2)? = null,
         tracker: Tracker<T2, R2>? = null
     ): FlowGraph {
@@ -112,6 +119,7 @@ class FlowGraph private constructor(
             uuid = uuid,
             key = case1.key,
             case = case2,
+            threadOn = threadOn ?: this.threadOn,
             inputTransformer = {
                 @Suppress("UNCHECKED_CAST")
                 inputTransformer?.invoke(it as R1) ?: (it as T2)
@@ -137,6 +145,7 @@ class FlowGraph private constructor(
         source: ConditionUseCase<T>,
         case1: UseCase<T1, R1>,
         case2: UseCase<T2, R2>,
+        threadOn: ThreadOn? = null,
         noinline inputTransformer1: ((T) -> T1)? = null,
         noinline inputTransformer2: ((T) -> T2)? = null,
         tracker1: Tracker<T1, R1>? = null,
@@ -148,6 +157,7 @@ class FlowGraph private constructor(
             source = source,
             case1 = case1,
             case2 = case2,
+            threadOn = threadOn ?: this.threadOn,
             inputTransformer1 = inputTransformer1,
             inputTransformer2 = inputTransformer2,
             tracker1 = tracker1,
@@ -163,13 +173,25 @@ class FlowGraph private constructor(
         return add(node)
     }
 
-    inline fun <reified T> produce(input: Any = rootInput, crossinline handler: (T) -> Unit) {
+    inline fun <reified T> produce(input: Any = rootInput, resultOn: ThreadOn? = ThreadOn.MAIN, crossinline handler: (T) -> Unit) {
         root = router[START]
+        val scope = when (resultOn) {
+            ThreadOn.MAIN -> CoroutineScope(Dispatchers.Main)
+            ThreadOn.IO -> CoroutineScope(Dispatchers.IO)
+            ThreadOn.UNSPECIFIC -> CoroutineScope(Dispatchers.Default)
+            else -> CoroutineScope(Dispatchers.Unconfined)
+        }
         endNode.result<T> {
-            handler.invoke(it)
+            scope.launch {
+                Logger.d(tag = "Node_Trace[$uuid]") { "produce result >> $it" }
+                handler.invoke(it)
+            }
         }
         endNode.error {
-            onError(it)
+            scope.launch {
+                Logger.d(tag = "Node_Trace[$uuid]") { "handle error >> $it" }
+                onError(it)
+            }
         }
         endNode.broadcast {
             dispatch(END, it)
@@ -177,13 +199,25 @@ class FlowGraph private constructor(
         start(input)
     }
 
-    inline fun <reified T> standby(crossinline handler: (T) -> Unit) {
+    inline fun <reified T> standby(resultOn: ThreadOn? = ThreadOn.MAIN, crossinline handler: (T) -> Unit) {
         root = router[START]
+        val scope = when (resultOn) {
+            ThreadOn.MAIN -> CoroutineScope(Dispatchers.Main)
+            ThreadOn.IO -> CoroutineScope(Dispatchers.IO)
+            ThreadOn.UNSPECIFIC -> CoroutineScope(Dispatchers.Default)
+            else -> CoroutineScope(Dispatchers.Unconfined)
+        }
         endNode.result<T> {
-            handler.invoke(it)
+            scope.launch {
+                Logger.d(tag = "Node_Trace[$uuid]") { "produce result >> $it" }
+                handler.invoke(it)
+            }
         }
         endNode.error {
-            onError(it)
+            scope.launch {
+                Logger.d(tag = "Node_Trace[$uuid]") { "handle error >> $it" }
+                onError(it)
+            }
         }
         endNode.broadcast {
             dispatch(END, it)

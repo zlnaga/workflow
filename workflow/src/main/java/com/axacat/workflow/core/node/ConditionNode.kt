@@ -5,6 +5,7 @@ import com.axacat.workflow.core.usecase.ConditionUseCase
 import com.axacat.workflow.core.usecase.UseCase
 import com.axacat.workflow.util.Logger
 import com.axacat.workflow.core.Result
+import com.axacat.workflow.core.ThreadOn
 import com.axacat.workflow.core.usecase.AsyncUseCase
 
 class ConditionNode<T, T1, T2, R1, R2>(
@@ -13,11 +14,12 @@ class ConditionNode<T, T1, T2, R1, R2>(
     private val source: ConditionUseCase<T>,
     private val case1: UseCase<T1, R1>,
     private val case2: UseCase<T2, R2>,
+    threadOn: ThreadOn,
     private val inputTransformer1: ((T) -> T1)? = null,
     private val inputTransformer2: ((T) -> T2)? = null,
     private val tracker1: Tracker<T1, R1>? = null,
     private val tracker2: Tracker<T2, R2>? = null,
-) : BroadcastNode(uuid, key, nextKeys = listOf(case1.key, case2.key)) {
+) : BroadcastNode(uuid, key, threadOn, nextKeys = listOf(case1.key, case2.key)) {
     override fun canHandle(input: Any): Boolean {
         return source.canHandle(input)
     }

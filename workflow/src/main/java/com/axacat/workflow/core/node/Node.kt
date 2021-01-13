@@ -2,6 +2,8 @@ package com.axacat.workflow.core.node
 
 import com.axacat.workflow.core.Result
 import androidx.annotation.CallSuper
+import com.axacat.workflow.core.ThreadOn
+import com.axacat.workflow.util.Logger
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
@@ -9,34 +11,30 @@ import kotlin.coroutines.EmptyCoroutineContext
 abstract class Node(
     val uuid: String,
     val key: String,
+    private val threadOn: ThreadOn? = ThreadOn.UNSPECIFIC,
     val nextKeys: List<String>? = null
 ) {
-    private val main by lazy { CoroutineScope(Dispatchers.Main) }
-    private val io by lazy { CoroutineScope(Dispatchers.IO) }
     private val default by lazy { CoroutineScope(Dispatchers.Default) }
+
+    private val worker by lazy {
+        when (threadOn) {
+            ThreadOn.MAIN -> CoroutineScope(Dispatchers.Main)
+            ThreadOn.IO -> CoroutineScope(Dispatchers.IO)
+            ThreadOn.UNSPECIFIC -> CoroutineScope(Dispatchers.Default)
+            else -> null
+        }
+    }
 
     private var errorHandler: ((Throwable) -> Unit)? = null
     var resultHandler: ((Any?) -> Unit)? = null
 
     private var next: ((Result<*>) -> Node?)? = null
 
-    protected fun runOnMain(
+    protected fun runOnWorker(
         context: CoroutineContext = EmptyCoroutineContext,
         start: CoroutineStart = CoroutineStart.DEFAULT,
         block: suspend CoroutineScope.() -> Unit
-    ) = main.launch(context, start, block)
-
-    protected fun runOnIO(
-        context: CoroutineContext = EmptyCoroutineContext,
-        start: CoroutineStart = CoroutineStart.DEFAULT,
-        block: suspend CoroutineScope.() -> Unit
-    ) = io.launch(context, start, block)
-
-    protected fun runOnDefault(
-        context: CoroutineContext = EmptyCoroutineContext,
-        start: CoroutineStart = CoroutineStart.DEFAULT,
-        block: suspend CoroutineScope.() -> Unit
-    ) = default.launch(context, start, block)
+    ) = (worker ?: default).launch(context, start, block)
 
     abstract fun canHandle(input: Any): Boolean
 
@@ -44,45 +42,44 @@ abstract class Node(
 
     open fun reset() {}
 
-    fun accept(input: Any) = runOnDefault {
+    fun accept(input: Any) = runOnWorker {
         onAccept(input)
     }
 
     @CallSuper
     open fun onNext(pass: Result<*>) {
-        val nextNode = next?.invoke(pass)
-        if (nextNode != null) {
-            this@Node.result(nextNode::onResult)
-            when (pass) {
-                is Result.Success -> nextNode.accept(pass.get() as Any)
-                is Result.Failure -> {
-                    val data = pass.getOrNull()
-                    val error = pass.exception()
-                    when {
-                        data != null -> nextNode.accept(data)
-                        nextNode.canHandle(error) -> nextNode.accept(error)
-                        else -> nextNode.onError(error)
+        runOnWorker {
+            Logger.d(tag = "Node_Trace[$uuid]") { "Actual running thread" }
+            val nextNode = next?.invoke(pass)
+            if (nextNode != null) {
+                this@Node.result(nextNode::onResult)
+                when (pass) {
+                    is Result.Success -> nextNode.accept(pass.get() as Any)
+                    is Result.Failure -> {
+                        val data = pass.getOrNull()
+                        val error = pass.exception()
+                        when {
+                            data != null -> nextNode.accept(data)
+                            nextNode.canHandle(error) -> nextNode.accept(error)
+                            else -> nextNode.onError(error)
+                        }
                     }
                 }
-            }
-        } else {
-            when (pass) {
-                is Result.Success -> onResult(pass.get())
-                is Result.Failure -> onError(pass.exception())
+            } else {
+                when (pass) {
+                    is Result.Success -> onResult(pass.get())
+                    is Result.Failure -> onError(pass.exception())
+                }
             }
         }
     }
 
     fun onResult(ret: Any?) {
-        runOnMain {
-            resultHandler?.invoke(ret)
-        }
+        resultHandler?.invoke(ret)
     }
 
     fun onError(error: Throwable) {
-        runOnMain {
-            errorHandler?.invoke(error)
-        }
+        errorHandler?.invoke(error)
     }
 
     fun next(factory: (Result<*>) -> Node?) {

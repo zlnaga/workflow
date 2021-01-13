@@ -1,15 +1,21 @@
 package com.axacat.workflow.sample
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.axacat.workflow.core.FlowGraph
+import com.axacat.workflow.core.ThreadOn
 import com.axacat.workflow.core.WorkFlow
 import com.axacat.workflow.core.WorkFlowParam
 import com.axacat.workflow.core.usecase.AsyncUseCase
 import com.axacat.workflow.core.usecase.ConditionUseCase
 import kotlinx.coroutines.*
+import java.lang.ref.WeakReference
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
@@ -26,8 +32,6 @@ class MainActivity : AppCompatActivity() {
 
         val resultText = findViewById<TextView>(R.id.text_result)
         val startBtn = findViewById<Button>(R.id.btn_start)
-
-        val atomicCounter = AtomicInteger(0)
 
         val workFlow = object : WorkFlow<TestWorkFlowParam>() {
 
@@ -86,7 +90,8 @@ class MainActivity : AppCompatActivity() {
                     uuid = UUID.randomUUID().toString(),
                     tag = "TestWorkFlow",
                     case = toIntCase,
-                    rootInput = param.bar
+                    rootInput = param.bar,
+                    threadOn = ThreadOn.UNSPECIFIC,
                 )
                     .link(toIntCase, largerThan20Case)
                     .condition(
@@ -102,9 +107,38 @@ class MainActivity : AppCompatActivity() {
 
         startBtn.setOnClickListener {
             workFlow.prepare(TestWorkFlowParam(foo = "hello", bar = Random.nextInt(10, 30)))
-            workFlow.produce<String> {
+            workFlow.produce<String>(ThreadOn.MAIN) {
                 resultText.append(it.toString() + "\n")
             }
         }
+        Log.d(this::class.java.name, "Hello sample")
+
+        runnable = MyRunnable(startBtn, mainHandler)
+        mainHandler.post(runnable!!)
     }
+
+    override fun onDestroy() {
+        runnable?.let {
+            mainHandler.removeCallbacks(it)
+        }
+        super.onDestroy()
+    }
+
+    class MyRunnable(
+        view: View,
+        private val handler: Handler
+    ): Runnable {
+        private val ref = WeakReference(view)
+
+        override fun run() {
+            ref.get()?.let { view ->
+                view.performClick()
+                handler.postDelayed(this, 1000)
+            }
+        }
+    }
+
+    val mainHandler = Handler(Looper.getMainLooper())
+
+    var runnable: MyRunnable? = null
 }

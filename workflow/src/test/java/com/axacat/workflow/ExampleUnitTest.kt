@@ -1,5 +1,6 @@
 package com.axacat.workflow
 
+import com.axacat.workflow.core.ThreadOn
 import com.axacat.workflow.core.node.BroadcastNode
 import org.junit.Test
 
@@ -14,7 +15,7 @@ import java.util.*
 class ExampleUnitTest {
     @Test
     fun test() {
-        val broadcastNode = object : BroadcastNode(UUID.randomUUID().toString(), "test") {
+        val broadcastNode = object : BroadcastNode(UUID.randomUUID().toString(), "test", ThreadOn.UNSPECIFIC) {
             override fun canHandle(input: Any): Boolean {
                 return true
             }

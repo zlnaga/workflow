@@ -1,6 +1,7 @@
 package com.axacat.workflow.core.node
 
 import androidx.annotation.CallSuper
+import com.axacat.workflow.core.ThreadOn
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.catch
@@ -8,15 +9,16 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
 
 abstract class BroadcastNode(
-        uuid: String,
-        key: String,
-        nextKeys: List<String>? = null
-) : Node(uuid, key, nextKeys) {
+    uuid: String,
+    key: String,
+    threadOn: ThreadOn,
+    nextKeys: List<String>? = null
+) : Node(uuid, key, threadOn, nextKeys) {
     private val broadcaster = Channel<Any>(Channel.UNLIMITED)
     private var broadcastReceiver: ((Any) -> Unit)? = null
 
     init {
-        runOnMain {
+        runOnWorker {
             broadcaster.consumeAsFlow().catch { error ->
                 onError(error)
             }.collect {

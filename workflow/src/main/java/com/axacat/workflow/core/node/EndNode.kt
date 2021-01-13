@@ -1,11 +1,13 @@
 package com.axacat.workflow.core.node
 
 import com.axacat.workflow.core.FlowGraph
+import com.axacat.workflow.core.ThreadOn
 import com.axacat.workflow.util.Logger
 
 class EndNode(
-        uuid: String
-) : BroadcastNode(uuid, FlowGraph.END) {
+    uuid: String,
+    threadOn: ThreadOn,
+) : BroadcastNode(uuid, FlowGraph.END, threadOn) {
     override fun canHandle(input: Any): Boolean {
         return true
     }

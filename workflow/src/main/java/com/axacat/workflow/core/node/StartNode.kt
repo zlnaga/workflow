@@ -6,13 +6,15 @@ import com.axacat.workflow.core.tracker.Tracker
 import com.axacat.workflow.core.usecase.AsyncUseCase
 import com.axacat.workflow.util.Logger
 import com.axacat.workflow.core.Result
+import com.axacat.workflow.core.ThreadOn
 
 class StartNode<T, R>(
         uuid: String,
         private val case: AsyncUseCase<T, R>,
+        threadOn: ThreadOn,
         private val inputTransformer: ((Any?) -> T)? = null,
         private val tracker: Tracker<T, R>? = null
-) : BroadcastNode(uuid, FlowGraph.START, nextKeys = listOf(case.key)) {
+) : BroadcastNode(uuid, FlowGraph.START, threadOn, nextKeys = listOf(case.key)) {
     override fun canHandle(input: Any): Boolean {
         val param = inputTransformer?.invoke(input) ?: input
         return case.canHandle(param)
