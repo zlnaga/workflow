@@ -15,8 +15,8 @@ buildscript {
         desc = 'An Android library to build SDK project.'
         siteUrl = 'https://github.com/zlnaga/workflow'
         vcsUrl = 'https://github.com/zlnaga/workflow.git'
-        versionCode = 10
-        versionName = "0.0.1"
+        versionCode = 20
+        versionName = "0.0.2"
     }
     repositories {
         google()
